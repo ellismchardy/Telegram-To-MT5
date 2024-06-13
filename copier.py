@@ -16,13 +16,12 @@ name = os.getenv('NAME')
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 chat = os.getenv('CHAT')
-symbol = os.getenv('SYMBOL')  
+symbol = os.getenv('SYMBOL')
 
 # MT5 Details
 login = int(os.getenv('MT5_LOGIN'))
 password = os.getenv('MT5_PASSWORD')
 server = os.getenv('MT5_SERVER')
-
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -138,14 +137,6 @@ def monitor_trade(order_id, entry_price, tp, sl, action):
     threshold_price = entry_price + 0.6 * tp_distance if action.lower() == 'buy' else entry_price - 0.6 * tp_distance
 
     while True:
-        current_price = get_current_price(symbol, action)
-
-        if (action.lower() == 'buy' and current_price >= threshold_price) or (action.lower() == 'sell' and current_price <= threshold_price):
-            modify_sl_to_breakeven(order_id, entry_price)
-            break
-
-        time.sleep(2)
-
         closed_positions = mt5.history_deals_get(ticket=order_id)
         if closed_positions:
             for deal in closed_positions:
@@ -180,60 +171,15 @@ def modify_sl_to_breakeven(order_id, entry_price):
                     logger.error("Failed to move stop loss to breakeven for order %s, retcode = %s", order_id, result.retcode)
                 break
 
-
-def connection_checker():
-    while True:
-        if check_mt5_connection():
-            logger.info("MT5 connection is working")
-        else:
-            logger.info("MT5 connection is not working")
-        time.sleep(5)
-
-
 def parse_signal(message):
-    match = re.search(r'(Buy|Sell)[\s\S]*TP:\s*([\d.]+)', message)
+    match = re.search(r'(Buy|Sell)', message)
     if match:
-        action, tp = match.groups()
-        tp = float(tp)
-        return action, tp
-    
-    match = re.search(r'(Buy|Sell)[\s\S]*TP1\s*([\d.]+)', message)
-    if match:
-        action, tp = match.groups()
-        tp = float(tp)
-        return action, tp
-    
-    match = re.search(r'(Buy|Sell)[\s\S]*TP1:\s*([\d.]+)', message)
-    if match:
-        action, tp = match.groups()
-        tp = float(tp)
-        return action, tp
-    
-    match = re.search(r'(Buy|Sell)[\s\S]*TP\s*([\d.]+)', message)
-    if match:
-        action, tp = match.groups()
-        tp = float(tp)
-        return action, tp
-    return None, None
-
-
-def check_mt5_connection():
-    if not mt5.initialize():
-        logger.error("MT5 initialization failed, error code = %s", mt5.last_error())
-        return False
-    authorized = mt5.login(login, password, server)
-    if not authorized:
-        logger.error("Failed to connect to MT5 account #%s, error code = %s", login, mt5.last_error())
-        return False
-
-    return True
-
+        action = match.group(1)
+        return action
+    return None
 
 async def main():
     mt5_setup()
-
-    connection_thread = threading.Thread(target=connection_checker, daemon=True)
-    connection_thread.start()
 
     async with TelegramClient(name, api_id, api_hash) as client:
         @client.on(events.NewMessage(chats=chat))
@@ -246,11 +192,10 @@ async def main():
 
                     current_price = get_current_price(symbol, action)
 
-                    # Adjust stop loss distance to be 3 times the take profit distance
-                    stop_loss_distance = abs(current_price - tp) * 3
-                    sl = current_price - stop_loss_distance if action.lower() == 'buy' else current_price + stop_loss_distance
+                    # Set the take profit and stop loss values
+                    tp = current_price + 2 if action.lower() == 'buy' else current_price - 2
+                    sl = current_price - 6 if action.lower() == 'buy' else current_price + 6
 
-                    # Set lot size to 0.5
                     lot_size = 1.25
 
                     place_order(symbol, action, current_price, sl, tp, lot_size, message)
