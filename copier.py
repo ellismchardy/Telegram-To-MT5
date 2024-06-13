@@ -23,15 +23,6 @@ login = int(os.getenv('MT5_LOGIN'))
 password = os.getenv('MT5_PASSWORD')
 server = os.getenv('MT5_SERVER')
 
-print(f"Name: {name}")
-print(f"API ID: {api_id}")
-print(f"API Hash: {api_hash}")
-print(f"Chat: {chat}")
-print(f"Symbol: {symbol}")
-print(f"MT5 Login: {login}")
-print(f"MT5 Password: {password}")
-print(f"MT5 Server: {server}")
-
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
